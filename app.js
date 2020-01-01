@@ -26,18 +26,36 @@ const config = {
   const connection=new Connection(config);
   connection.config.options.rowCollectionOnRequestCompletion=true;
   app.listen(port,()=>console.log("Server is running"));
+  app.use(function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+  });
+
+
   app.get('/Api/Material',(req,res)=>{
     connection.on('connect', function(err) {  
       if (err) {  
         console.log(err);}  
     });        
-
-var result = [{"Id" : 5,    "Name" : "sss",    "Price" : 25}];
-  result.push({"Id" : 4,    "Name" : "AAA",    "Price" : 295});
-res.status(200).json(result);
-//console.log("AAAAAAAAA "+resultt)
+// var result = [{"id" : 5,    "name" : "sss",    "price" : 25}];
+//   result.push({"id" : 4,    "name" : "AAA",    "price" : 295});
+  Read(function(error, results) {
+    // here is the results array from the first query    
+    res.json({status :200,message:0,result : results});
+  });
   })
-
+  app.get('/Api/Material/:id',(req,res)=>{
+    connection.on('connect', function(err) {  
+      if (err) {  
+        console.log(err);}  
+    });        
+  ReadSingle(req.params.id,function(error, result) {
+    // here is the results array from the first query    
+    res.json({status :200,message:0,result : result});
+  });
+  })
 app.post('/Api/Material',(req,res)=>{
     connection.on('connect', function(err) {  
       if (err) {  
@@ -45,7 +63,7 @@ app.post('/Api/Material',(req,res)=>{
     });  
       console.log(req.body);  
   Insert(req.body.name,req.body.price);
-    res.send("done");     
+    res.json({status :200,message:0,result : "inserted"});     
   })
 app.delete('/Api/Material/:id',(req,res)=>{
     connection.on('connect', function(err) {  
@@ -54,9 +72,9 @@ app.delete('/Api/Material/:id',(req,res)=>{
     });  
       console.log(req.params);  
       Delete(req.params.id);
-res.send("done");     
+      res.json({status :200,message:0,result : "Deleted"});      
   })
-  app.patch('/Api/Material/:id',(req,res)=>{
+  app.put('/Api/Material/:id',(req,res)=>{
     connection.on('connect', function(err) {  
       if (err) {  
         console.log(err);}  
@@ -64,7 +82,8 @@ res.send("done");
       console.log(req.params);  
       console.log(req.body);  
       Update(req.body.name,req.body.price,req.params.id);
-res.send("done");     
+      var result={id:req.params.id,name:req.body.name,price:req.body.price};
+      res.json({status :200,message:0,result : result});   
   })
 
 function Insert(name, price) {
@@ -127,10 +146,9 @@ function Update(name, price ,id) {
   // Execute SQL statement
   connection.execSql(request);
 }
-function Read() {
+function Read(callback) {
+  var results = [];
   console.log('Reading rows from the Table...');
-  var result = [{"Id" : 5,    "Name" : "sss",    "Price" : 25}];
-  result.push({"Id" : 4,    "Name" : "AAA",    "Price" : 295});
   // Read all rows from table
   request = new Request(
   'SELECT  [Id]  ,[Name]  ,[Price] FROM [dbo].[Material]',
@@ -138,29 +156,59 @@ function Read() {
   if (err) {
       console.log(err);
   } else {
-     // console.log(rowCount + ' row(s) returned');
-      //console.log(rows.length);
-  }
+      console.log(rowCount + ' row(s) returned');
+   }
   console.log("returning row");
-  //return rows;
+  callback(null, results);
   });
-
-  // Print the rows read
-  
-  request.on('row', function(columns) {
+  // Print the rows read  
+ request.on('row', function(columns) {
+ var rowdetails=[];
       columns.forEach(function(column) {
-          if (column.value === null) {
+           if (column.value === null) {
               console.log('NULL');
-          } else {
-           console.log(column.metadata.colName +" : "+column.value);             
-          }
-         // this.result.push({"Id" : 5,    "Name" : "ssas",    "Price" : 25});
+           } else {
+            rowdetails.push(column.value);                      
+           }   
+      
       });
-     
-  });
-
+      
+        results.push({"id" : rowdetails[0],    "name" : rowdetails[1],    "price" : rowdetails[2]});     
+   });
   // Execute SQL statement
   connection.execSql(request);
-  return result;
-//  result = "";  
+}
+function ReadSingle(id,callback) {
+  var results = [];
+  console.log('Reading rows from the Table...');
+  // Read all rows from table
+  request = new Request(
+  'SELECT  [Id]  ,[Name]  ,[Price] FROM [dbo].[Material] where id=@id',
+  function(err, rowCount, rows) {
+  if (err) {
+      console.log(err);
+  } else {
+      console.log(rowCount + ' row(s) returned');
+   }
+  console.log("returning row");
+  callback(null, results);
+  });
+  request.addParameter('id', TYPES.Int, id);
+
+  // Print the rows read  
+ request.on('row', function(columns) {
+ var rowdetails=[];
+      columns.forEach(function(column) {
+           if (column.value === null) {
+              console.log('NULL');
+           } else {
+            rowdetails.push(column.value);                      
+           }   
+      
+      });
+      
+        results.push({"id" : rowdetails[0],    "name" : rowdetails[1],    "price" : rowdetails[2]});     
+   });
+  // Execute SQL statement
+  connection.execSql(request);
 }
